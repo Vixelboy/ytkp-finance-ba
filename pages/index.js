@@ -141,7 +141,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <p style={styles.footer}>© 2025 YTKP Banjar Asri. Semua hak dilindungi.</p>
+          <p style={styles.footer}>© 2026 Muhamad Ikbal T. Semua hak dilindungi.</p>
         </div>
       </div>
     </>
