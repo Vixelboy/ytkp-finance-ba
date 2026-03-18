@@ -88,16 +88,24 @@ export function TransaksiTab({ filtered, summary, onDelete, onViewProof, T }) {
 export function PesanTab({ T, adminId, adminName }) {
   const [selected, setSelected] = useState('SMP');
   const [text, setText] = useState('');
+  const [allMsgs, setAllMsgs] = useState([]);
   const endRef = useRef(null);
 
-  const allMsgs = getMessages();
-  const conv = allMsgs.filter(m=>m.type==='direct' && (m.toSchool===selected||m.fromSchool===selected));
-  useEffect(()=>{ endRef.current?.scrollIntoView({ behavior:'smooth' }); }, [selected, conv.length]);
+  useEffect(() => { loadMsgs(); }, []);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior:'smooth' }); }, [selected, allMsgs]);
 
-  function send() {
+  async function loadMsgs() {
+    const msgs = await getMessages();
+    setAllMsgs(msgs);
+  }
+
+  const conv = allMsgs.filter(m=>m.type==='direct' && (m.to_school===selected||m.from_school===selected));
+
+  async function send() {
     if(!text.trim()) return;
-    saveMessage({ type:'direct', from:adminId, fromName:adminName, fromRole:'admin', toSchool:selected, content:text.trim() });
+    await saveMessage({ type:'direct', from:adminId, fromName:adminName, fromRole:'admin', toSchool:selected, content:text.trim() });
     setText('');
+    loadMsgs();
   }
 
   return (
@@ -109,12 +117,12 @@ export function PesanTab({ T, adminId, adminName }) {
       </div>
       <div style={{ height:'300px', overflowY:'auto', padding:'12px', display:'flex', flexDirection:'column', gap:'8px' }}>
         {conv.length===0 && <div style={{ textAlign:'center', color:T.sub, fontSize:'13px', marginTop:'30px' }}>Belum ada pesan dari {SCHOOL_LABELS[selected]}</div>}
-        {conv.map(m=>(
-          <div key={m.id} style={{ display:'flex', justifyContent:m.fromRole==='admin'?'flex-end':'flex-start' }}>
-            <div style={{ maxWidth:'78%', background:m.fromRole==='admin'?SC[selected]:(T.input), color:m.fromRole==='admin'?'#fff':T.text, borderRadius:m.fromRole==='admin'?'12px 4px 12px 12px':'4px 12px 12px 12px', padding:'8px 12px', fontSize:'13px' }}>
-              <div style={{ fontSize:'10px', opacity:.7, marginBottom:'3px', fontWeight:'600' }}>{m.fromName}</div>
+        {conv.map((m,i)=>(
+          <div key={i} style={{ display:'flex', justifyContent:m.from_role==='admin'?'flex-end':'flex-start' }}>
+            <div style={{ maxWidth:'78%', background:m.from_role==='admin'?SC[selected]:(T.input), color:m.from_role==='admin'?'#fff':T.text, borderRadius:m.from_role==='admin'?'12px 4px 12px 12px':'4px 12px 12px 12px', padding:'8px 12px', fontSize:'13px' }}>
+              <div style={{ fontSize:'10px', opacity:.7, marginBottom:'3px', fontWeight:'600' }}>{m.from_name}</div>
               {m.content}
-              <div style={{ fontSize:'10px', opacity:.6, marginTop:'3px', textAlign:'right' }}>{new Date(m.createdAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</div>
+              <div style={{ fontSize:'10px', opacity:.6, marginTop:'3px', textAlign:'right' }}>{new Date(m.created_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</div>
             </div>
           </div>
         ))}

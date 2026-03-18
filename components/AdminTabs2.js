@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { getMessages, saveMessage, getSettings, saveSettings, getUsers, createUser, deleteUser, askGroqAI } from '../lib/store';
+import { useState, useEffect } from 'react';
+import { getMessages, saveMessage, getSettings, saveSettings, getUsers, createUser, deleteUser } from '../lib/store';
 import { formatRupiah } from '../lib/format';
 import { ChartPanel } from '../lib/adminComponents';
 
@@ -15,27 +15,32 @@ export function GrafikTab({ allTxs, T }) {
 }
 
 export function UserTab({ T }) {
-  const [users, setUsers] = useState(getUsers());
+  const [users, setUsers] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name:'', pin:'', role:'user', school:'SMP' });
   const [msg, setMsg] = useState('');
 
-  function refresh() { setUsers(getUsers()); }
+  useEffect(() => { loadUsers(); }, []);
 
-  function handleCreate(e) {
+  async function loadUsers() {
+    const data = await getUsers();
+    setUsers(data);
+  }
+
+  async function handleCreate(e) {
     e.preventDefault();
     if(!form.name.trim()||!form.pin.trim()) { setMsg('Nama dan PIN wajib diisi'); return; }
-    createUser(form);
+    await createUser(form);
     setMsg('User berhasil dibuat!');
     setShowForm(false);
     setForm({ name:'', pin:'', role:'user', school:'SMP' });
-    refresh();
+    loadUsers();
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if(!confirm('Hapus user ini?')) return;
-    deleteUser(id);
-    refresh();
+    await deleteUser(id);
+    loadUsers();
   }
 
   const inp = { border:`1.5px solid ${T.border}`, borderRadius:'8px', padding:'9px 12px', fontSize:'13px', color:T.text, background:T.input, width:'100%', outline:'none', boxSizing:'border-box' };
@@ -91,31 +96,38 @@ export function UserTab({ T }) {
 
 export function GrupTab({ userId, userName, userRole, userSchool, T }) {
   const [text, setText] = useState('');
-  const [msgs, setMsgs] = useState(getMessages().filter(m=>m.type==='group'));
+  const [msgs, setMsgs] = useState([]);
 
-  function send() {
+  useEffect(() => { loadMsgs(); }, []);
+
+  async function loadMsgs() {
+    const all = await getMessages();
+    setMsgs(all.filter(m=>m.type==='group'));
+  }
+
+  async function send() {
     if(!text.trim()) return;
-    saveMessage({ type:'group', from:userId, fromName:userName, fromRole:userRole, fromSchool:userSchool, content:text.trim() });
+    await saveMessage({ type:'group', from:userId, fromName:userName, fromRole:userRole, fromSchool:userSchool, content:text.trim() });
     setText('');
-    setMsgs(getMessages().filter(m=>m.type==='group'));
+    loadMsgs();
   }
 
   return (
     <div style={{ background:T.card, borderRadius:'14px', border:`1px solid ${T.border}`, overflow:'hidden' }}>
-      <div style={{ padding:'14px 16px', borderBottom:`1px solid ${T.border}`, background: T.input }}>
+      <div style={{ padding:'14px 16px', borderBottom:`1px solid ${T.border}`, background:T.input }}>
         <div style={{ fontSize:'14px', fontWeight:'700', color:T.text }}>👥 Grup YTKP Banjar Asri</div>
         <div style={{ fontSize:'12px', color:T.sub }}>Pesan grup semua bendahara & admin</div>
       </div>
       <div style={{ height:'320px', overflowY:'auto', padding:'12px', display:'flex', flexDirection:'column', gap:'8px' }}>
         {msgs.length===0 && <div style={{ textAlign:'center', color:T.sub, fontSize:'13px', marginTop:'30px' }}>Belum ada pesan di grup</div>}
-        {msgs.map(m=>{
+        {msgs.map((m,i)=>{
           const isMe = m.from===userId;
           return (
-            <div key={m.id} style={{ display:'flex', justifyContent:isMe?'flex-end':'flex-start' }}>
+            <div key={i} style={{ display:'flex', justifyContent:isMe?'flex-end':'flex-start' }}>
               <div style={{ maxWidth:'78%', background:isMe?'#1a3a5c':(T.input), color:isMe?'#fff':T.text, borderRadius:isMe?'12px 4px 12px 12px':'4px 12px 12px 12px', padding:'8px 12px', fontSize:'13px' }}>
-                <div style={{ fontSize:'10px', opacity:.7, marginBottom:'3px', fontWeight:'600' }}>{m.fromName} {m.fromSchool?`(${m.fromSchool} Banjar Asri)`:''}</div>
+                <div style={{ fontSize:'10px', opacity:.7, marginBottom:'3px', fontWeight:'600' }}>{m.from_name} {m.from_school?`(${m.from_school} Banjar Asri)`:''}</div>
                 {m.content}
-                <div style={{ fontSize:'10px', opacity:.6, marginTop:'3px', textAlign:'right' }}>{new Date(m.createdAt).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</div>
+                <div style={{ fontSize:'10px', opacity:.6, marginTop:'3px', textAlign:'right' }}>{new Date(m.created_at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</div>
               </div>
             </div>
           );
@@ -149,7 +161,6 @@ export function SettingsTab({ user, theme, toggleTheme, onPrint, T }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
       {saved && <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', color:'#166534', borderRadius:'8px', padding:'10px 14px', fontSize:'13px' }}>✅ Pengaturan tersimpan!</div>}
-
       <div style={{ background:T.card, borderRadius:'14px', padding:'18px', border:`1px solid ${T.border}` }}>
         <h3 style={{ fontSize:'14px', fontWeight:'700', color:T.text, marginBottom:'4px' }}>⚙️ Pengaturan Umum</h3>
         {row('Tema Tampilan', `${theme==='dark'?'Mode Gelap':'Mode Terang'} aktif`,
@@ -159,18 +170,16 @@ export function SettingsTab({ user, theme, toggleTheme, onPrint, T }) {
           <button onClick={onPrint} style={{ background:'#1a3a5c', color:'#fff', border:'none', borderRadius:'8px', padding:'7px 14px', fontSize:'12px', fontWeight:'600', cursor:'pointer' }}>📄 Cetak</button>
         )}
       </div>
-
       <div style={{ background:T.card, borderRadius:'14px', padding:'18px', border:`1px solid ${T.border}` }}>
         <h3 style={{ fontSize:'14px', fontWeight:'700', color:T.text, marginBottom:'14px' }}>🔐 Keamanan Admin</h3>
         <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
           <div>
-            <label style={{ fontSize:'12px', fontWeight:'600', color:T.sub, display:'block', marginBottom:'6px' }}>KODE DARURAT ADMIN (untuk login darurat)</label>
+            <label style={{ fontSize:'12px', fontWeight:'600', color:T.sub, display:'block', marginBottom:'6px' }}>KODE DARURAT ADMIN</label>
             <input style={inp} value={settings.adminBackupCode||''} onChange={e=>setSettings({...settings,adminBackupCode:e.target.value.toUpperCase()})} placeholder="Contoh: YTKP-ADMIN-2026" />
             <div style={{ fontSize:'11px', color:T.sub, marginTop:'4px' }}>💡 Gunakan kode ini jika admin lupa nama/PIN</div>
           </div>
         </div>
       </div>
-
       <div style={{ background:T.card, borderRadius:'14px', padding:'18px', border:`1px solid ${T.border}` }}>
         <h3 style={{ fontSize:'14px', fontWeight:'700', color:T.text, marginBottom:'14px' }}>🤖 Konfigurasi AI (Groq)</h3>
         <div>
@@ -180,7 +189,6 @@ export function SettingsTab({ user, theme, toggleTheme, onPrint, T }) {
         </div>
         <button onClick={save} style={{ marginTop:'14px', background:'linear-gradient(135deg,#1a3a5c,#2563a8)', color:'#fff', border:'none', borderRadius:'8px', padding:'10px 20px', fontSize:'13px', fontWeight:'600', cursor:'pointer', width:'100%' }}>💾 Simpan Pengaturan</button>
       </div>
-
       <div style={{ background:T.card, borderRadius:'14px', padding:'18px', border:`1px solid ${T.border}` }}>
         <h3 style={{ fontSize:'14px', fontWeight:'700', color:T.text, marginBottom:'14px' }}>❓ Bantuan & CS</h3>
         <p style={{ fontSize:'13px', color:T.sub, marginBottom:'14px', lineHeight:1.6 }}>Hubungi tim Customer Service YTKP Banjar Asri melalui WhatsApp untuk bantuan teknis.</p>
